@@ -28,9 +28,55 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # ---------- 3. 装 Android SDK ----------
+      # ---------- 3. 配置 Android SDK ----------
+      # 不用第三方 action（那个以前经常失败），改用 runner 自带的 SDK。
+      # ubuntu-latest 镜像里已经预装了 Android SDK，只要设好环境变量即可。
       - name: 配置 Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          set -e
+          echo "=== 查找预装的 Android SDK ==="
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            for CAND in /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
+              if [ -d "$CAND" ]; then SDK_ROOT="$CAND"; break; fi
+            done
+          fi
+          if [ -z "$SDK_ROOT" ] || [ ! -d "$SDK_ROOT" ]; then
+            echo "❌ 找不到 Android SDK"
+            exit 1
+          fi
+          echo "SDK 位置: $SDK_ROOT"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK_ROOT"     >> "$GITHUB_ENV"
+          echo "=== 已有组件 ==="
+          ls "$SDK_ROOT" || true
+          echo "=== 可用 platform 版本 ==="
+          ls "$SDK_ROOT/platforms" 2>/dev/null || echo "(platforms 目录为空)"
+          echo "=== build-tools ==="
+          ls "$SDK_ROOT/build-tools" 2>/dev/null || echo "(build-tools 目录为空)"
+
+      # ---------- 3b. 确保 API 34 平台和构建工具存在 ----------
+      - name: 安装缺失的 SDK 组件
+        run: |
+          set -e
+          SDK_ROOT="$ANDROID_SDK_ROOT"
+          CMDLINE="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$CMDLINE" ]; then
+            # 试一下旧版路径
+            CMDLINE=$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1 || true)
+          fi
+
+          if [ -z "$CMDLINE" ] || [ ! -x "$CMDLINE" ]; then
+            echo "⚠️ 找不到 sdkmanager，跳过组件安装"
+            echo "→ 如果后面编译失败是缺少 platform 34，再回来处理"
+            exit 0
+          fi
+
+          echo "sdkmanager: $CMDLINE"
+          yes | "$CMDLINE" --licenses > /dev/null 2>&1 || true
+          "$CMDLINE" "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -5 || true
+          echo "=== 安装后 ==="
+          ls "$SDK_ROOT/platforms" 2>/dev/null || echo "(仍然为空)"
 
       # ---------- 4. 缓存 Gradle，加快下次编译 ----------
       - name: 缓存 Gradle
@@ -66,7 +112,8 @@ jobs:
         run: |
           set -e
 
-          if [ -f "320n_fp16.onnx" ]; then
+          # 已经有模型就直接用（兼容手动放进来的情况）
+          if [ -f "320n.onnx" ] || [ -f "320n_fp16.onnx" ]; then
             echo "→ 模型已存在，跳过下载"
             ls -la
             exit 0
@@ -123,9 +170,15 @@ jobs:
           ls -la
 
       # ---------- 7. 开始编译 ----------
+      - name: 写入 local.properties
+        working-directory: SmoothCensor
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          cat local.properties
+
       - name: 编译 Debug APK
         working-directory: SmoothCensor
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
 
       # ---------- 8. 上传产物 ----------
       - name: 上传 APK
