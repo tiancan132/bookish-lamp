@@ -1,47 +1,45 @@
 plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
-    namespace 'com.example.smoothcensor'
-    compileSdk 34
+    namespace = "com.example.smoothcensor"
+    compileSdk = 34
 
     defaultConfig {
-        applicationId "com.example.smoothcensor"
-        minSdk 26
-        targetSdk 34
-        versionCode 1
-        versionName "0.1"
+        applicationId = "com.example.smoothcensor"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "0.1"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            isMinifyEnabled = false
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = '17'
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // 让 assets 里的 .onnx 不被压缩，ONNX Runtime 需要直接读取
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     androidResources {
-        noCompress 'onnx'
+        noCompress += "onnx"
     }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.13.1'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
-
-    // ONNX Runtime —— 跑 AI 模型
-    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.18.0'
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
 }
